@@ -99,8 +99,8 @@ for i = 1, 50 do
         return game:GetService("ReplicatedStorage"):WaitForChild("API"):WaitForChild("ShopAPI/BuyItem"):InvokeServer(unpack(args))
     end)
 
-    -- Track the purchase
-    if success and result then
+    -- Track the purchase only if it was actually successful
+    if success and result == true then -- Check if the result is true (indicating a successful purchase)
         TotalPurchases = TotalPurchases + 1
         sendPurchaseWebhook()
         print("✅ Bought Super Saru #" .. TotalPurchases)
