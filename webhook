@@ -1,0 +1,110 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+
+-- Configuration
+local PLAYER = Players.LocalPlayer
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1360600069895618571/7uviS811Qgo5J_nVRUjxHDoQSI9yN19gzdMuFMdDYdrwZJ5VLLhOHHyt6Yvi6pcCckbO" -- Replace with a new webhook URL if needed
+local REPORT_INTERVAL = 24 * 60 * 60 -- 24 hours in seconds
+
+-- Shared data
+local TotalPurchases = 0 -- Simulating cross-account total
+
+-- Send webhook (individual purchase) using Codex's http_request
+local function sendPurchaseWebhook()
+    local embed = {
+        title = "🐵 Super Saru Purchased!",
+        description = PLAYER.Name .. " bought 1 pet. Total: **" .. TotalPurchases .. "**.",
+        color = tonumber(0x32CD32),
+        fields = {
+            { name = "🕒 Time", value = os.date("%Y-%m-%d %H:%M:%S"), inline = false }
+        }
+    }
+
+    local payload = HttpService:JSONEncode({ embeds = { embed } })
+    local success, response = pcall(function()
+        return http_request({
+            Url = WEBHOOK_URL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = payload
+        })
+    end)
+
+    if success and response and response.StatusCode == 204 then
+        print("✅ Purchase webhook sent successfully")
+    else
+        print("❌ Failed to send purchase webhook: " .. (response and response.StatusMessage or "Unknown error"))
+    end
+    task.wait(1) -- Add a 1-second delay to avoid rate limiting
+end
+
+-- Send daily report webhook using Codex's http_request
+local function sendDailyReport()
+    local embed = {
+        title = "📊 Daily Super Saru Purchase Report",
+        description = "Total Super Sarus bought across accounts in the last 24 hours: **" .. TotalPurchases .. "**",
+        color = tonumber(0x1E90FF),
+        fields = {
+            { name = "🕒 Report Time", value = os.date("%Y-%m-%d %H:%M:%S"), inline = false }
+        }
+    }
+
+    local payload = HttpService:JSONEncode({ embeds = { embed } })
+    local success, response = pcall(function()
+        return http_request({
+            Url = WEBHOOK_URL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = payload
+        })
+    end)
+
+    if success and response and response.StatusCode == 204 then
+        print("✅ Daily report webhook sent successfully")
+    else
+        print("❌ Failed to send daily report webhook: " .. (response and response.StatusMessage or "Unknown error"))
+    end
+end
+
+-- Start daily report loop
+spawn(function()
+    while true do
+        task.wait(REPORT_INTERVAL)
+        if TotalPurchases > 0 then
+            sendDailyReport()
+        end
+        TotalPurchases = 0 -- Reset counter
+    end
+end)
+
+-- Buying loop
+task.wait(30)
+for i = 1, 50 do
+    task.wait()
+    local args = {
+        [1] = "pets",
+        [2] = "spring_2025_super_saru",
+        [3] = {
+            ["buy_count"] = 1
+        }
+    }
+
+    -- Attempt to buy the pet
+    local success, result = pcall(function()
+        return game:GetService("ReplicatedStorage"):WaitForChild("API"):WaitForChild("ShopAPI/BuyItem"):InvokeServer(unpack(args))
+    end)
+
+    -- Track the purchase
+    if success and result then
+        TotalPurchases = TotalPurchases + 1
+        sendPurchaseWebhook()
+        print("✅ Bought Super Saru #" .. TotalPurchases)
+    else
+        print("❌ Purchase failed: " .. (result or "Unknown error"))
+    end
+end
